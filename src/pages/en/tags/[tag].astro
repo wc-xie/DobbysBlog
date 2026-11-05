@@ -1,0 +1,10 @@
+---
+import Page from '../../../components/pages/Listing.astro';
+import { getPosts } from '../../../lib';
+export async function getStaticPaths() {
+  const posts = await getPosts('en');
+  return [...new Set(posts.flatMap(post => post.data.tags))].map(tag => ({ params: { tag }, props: { tag } }));
+}
+const { tag } = Astro.props;
+---
+<Page lang="en" kind="tag" tag={tag} />

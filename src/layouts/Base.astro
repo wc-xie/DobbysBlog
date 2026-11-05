@@ -1,26 +1,35 @@
 ---
 import { blog } from '../../blog.config.mjs';
+import { getCopy, htmlLang, localPath, otherLang, type Lang } from '../i18n';
 import Icon from '../components/Icon.astro';
 import '../styles/global.css';
-interface Props { title?: string; description?: string; article?: boolean; }
-const { title, description = blog.description, article = false } = Astro.props;
-const path = Astro.url.pathname;
-const canonical = new URL(path, Astro.site);
-const navigation = [{ href: '/', label: '文章' }, { href: '/archive/', label: '归档' }, { href: '/tags/', label: '标签' }, { href: '/about/', label: '关于' }];
+interface Props { title?: string; description?: string; article?: boolean; lang?: Lang; alternates?: Partial<Record<Lang, string>>; }
+const { title, article = false, lang = 'zh', alternates: suppliedAlternates } = Astro.props;
+const t = getCopy(lang);
+const description = Astro.props.description || (lang === 'en' ? blog.descriptionEn : blog.description);
+const currentPath = Astro.url.pathname;
+const path = currentPath.replace(/^\/en(?=\/|$)/, '') || '/';
+const canonical = new URL(currentPath, Astro.site);
+const alternates = suppliedAlternates || { zh: path, en: localPath('en', path) };
+const switchTo = otherLang(lang);
+const switchHref = alternates[switchTo] || localPath(switchTo);
+const navigation = [{ href: '/', label: t.articles }, { href: '/archive/', label: t.archive }, { href: '/tags/', label: t.tags }, { href: '/about/', label: t.about }];
 ---
 <!doctype html>
-<html lang="zh-CN">
+<html lang={htmlLang(lang)} data-language={lang}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <meta name="theme-color" content="#f8f7f3" />
     <meta name="color-scheme" content="light dark" />
-    <title>{title ? `${title} · ${blog.title}` : `${blog.title} · 记录与思考`}</title>
+    <title>{title ? `${title} · ${blog.title}` : `${blog.title} · ${t.subtitle}`}</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="canonical" href={canonical} />
-    <link rel="alternate" type="application/rss+xml" title={blog.title} href="/rss.xml" />
-    <meta property="og:locale" content="zh_CN" />
+    {Object.entries(alternates).map(([language, href]) => <link rel="alternate" hreflang={htmlLang(language as Lang)} href={new URL(href, Astro.site)} />)}
+    <link rel="alternate" hreflang="x-default" href={new URL(alternates.zh || alternates.en || '/', Astro.site)} />
+    <link rel="alternate" type="application/rss+xml" title={`${blog.title} · ${lang === 'en' ? 'English' : '中文'}`} href={localPath(lang, '/rss.xml')} />
+    <meta property="og:locale" content={lang === 'en' ? 'en_US' : 'zh_CN'} />
     <meta property="og:type" content={article ? 'article' : 'website'} />
     <meta property="og:title" content={title || blog.title} />
     <meta property="og:description" content={description} />
@@ -35,27 +44,26 @@ const navigation = [{ href: '/', label: '文章' }, { href: '/archive/', label: 
     </script>
   </head>
   <body>
-    <a class="skip-link" href="#main">跳到正文</a>
+    <a class="skip-link" href="#main">{t.skip}</a>
     <header class="site-header shell" data-pagefind-ignore>
-      <a class="brand" href="/" aria-label="Dobby’s Blog 首页"><span class="brand-mark">d<span>·</span></span><span>Dobby’s Blog<small>A PLACE FOR THOUGHTS</small></span></a>
-      <nav aria-label="主导航">{navigation.map(item => <a href={item.href} class:list={[{ active: item.href === '/' ? path === '/' || path.startsWith('/posts/') : path.startsWith(item.href) }]} aria-current={item.href === path ? 'page' : undefined}>{item.label}</a>)}</nav>
+      <a class="brand" href={localPath(lang)} aria-label={`${blog.title} · ${t.home}`}><span class="brand-mark">d<span>·</span></span><span>{blog.title}<small>A PLACE FOR THOUGHTS</small></span></a>
+      <nav aria-label={t.mainNavigation}>{navigation.map(item => <a href={localPath(lang, item.href)} class:list={[{ active: item.href === '/' ? path === '/' || path.startsWith('/posts/') : path.startsWith(item.href) }]} aria-current={item.href === path ? 'page' : undefined}>{item.label}</a>)}</nav>
       <div class="header-tools">
-        <button class="icon-button" id="open-search" aria-label="搜索文章"><Icon name="search" /><kbd>⌘ K</kbd></button>
+        <a class="language-switch" id="language-switch" href={switchHref} lang={htmlLang(switchTo)} hreflang={htmlLang(switchTo)} aria-label={alternates[switchTo] ? t.language : t.missingTranslation} title={alternates[switchTo] ? t.language : t.missingTranslation}>{lang === 'en' ? '中文' : 'EN'}</a>
+        <button class="icon-button" id="open-search" aria-label={t.search}><Icon name="search" /><kbd>⌘ K</kbd></button>
         <span class="tool-divider"></span>
-        <button class="icon-button theme-toggle" id="theme-toggle" aria-label="切换深色模式"><span class="sun"><Icon name="sun" /></span><span class="moon"><Icon name="moon" /></span></button>
+        <button class="icon-button theme-toggle" id="theme-toggle" aria-label={t.dark}><span class="sun"><Icon name="sun" /></span><span class="moon"><Icon name="moon" /></span></button>
       </div>
     </header>
     <main id="main" class="shell"><slot /></main>
     <footer class="site-footer shell" data-pagefind-ignore>
-      <div><a class="footer-wordmark" href="/">Dobby’s Blog<span>·</span></a><p>保持好奇，认真生活。</p></div>
-      <div class="footer-right"><div><a href="/rss.xml" aria-label="订阅 RSS"><Icon name="rss" size={17} /><span>RSS</span></a><a href={blog.github} aria-label="GitHub"><Icon name="github" size={17} /><span>GitHub</span></a></div><small>© {new Date().getFullYear()} {blog.author} · 文字与思想的自留地</small></div>
+      <div><a class="footer-wordmark" href={localPath(lang)}>{blog.title}<span>·</span></a><p>{t.footer}</p></div>
+      <div class="footer-right"><div><a href={localPath(lang, '/rss.xml')} aria-label={t.subscribe}><Icon name="rss" size={17} /><span>RSS</span></a><a href={blog.github} aria-label="GitHub"><Icon name="github" size={17} /><span>GitHub</span></a></div><small>© {new Date().getFullYear()} {blog.author} · {t.copyright}</small></div>
     </footer>
     <dialog id="search-dialog" class="search-dialog" aria-labelledby="search-title">
-      <div class="dialog-header"><h2 id="search-title">寻找一个想法</h2><button class="icon-button" data-close-search aria-label="关闭搜索"><Icon name="close" /></button></div>
-      <div id="search" class="search-content"><p>正在准备搜索…</p></div>
+      <div class="dialog-header"><h2 id="search-title">{t.searchTitle}</h2><button class="icon-button" data-close-search aria-label={t.closeSearch}><Icon name="close" /></button></div>
+      <div id="search" class="search-content"><p>{t.searchLoading}</p></div>
     </dialog>
-    <script>
-      import '../scripts/site';
-    </script>
+    <script>import '../scripts/site';</script>
   </body>
 </html>

@@ -10,12 +10,17 @@ try {
   await fs.mkdir(path.join(vaultPath, 'Blog/Posts'), { recursive: true });
   await fs.mkdir(path.join(vaultPath, 'Blog/Attachments'), { recursive: true });
   const source = path.join(root, 'examples/vault/Blog');
-  for (const folder of ['Posts', 'Attachments']) {
-    for (const file of await fs.readdir(path.join(source, folder))) {
-      try { await fs.copyFile(path.join(source, folder, file), path.join(vaultPath, 'Blog', folder, file), fs.constants.COPYFILE_EXCL); }
+  async function copyMissing(relative) {
+    await fs.mkdir(path.join(vaultPath, 'Blog', relative), { recursive: true });
+    for (const entry of await fs.readdir(path.join(source, relative), { withFileTypes: true })) {
+      const file = path.join(relative, entry.name);
+      if (entry.isDirectory()) { await copyMissing(file); continue; }
+      if (!entry.isFile()) continue;
+      try { await fs.copyFile(path.join(source, file), path.join(vaultPath, 'Blog', file), fs.constants.COPYFILE_EXCL); }
       catch (error) { if (error.code !== 'EEXIST') throw error; }
     }
   }
+  for (const folder of ['Posts', 'Attachments']) await copyMissing(folder);
   await fs.writeFile(path.join(root, 'vault.local.json'), JSON.stringify({ vaultPath, contentRoots: ['Blog/Posts'] }, null, 2) + '\n', { flag: 'wx' }).catch(error => { if (error.code !== 'EEXIST') throw error; });
   console.log('Blog/Posts 与 Blog/Attachments 已准备好。样稿仅在文件不存在时创建。');
   console.log('接下来运行 npm run sync:plan 查看将导入的内容。');

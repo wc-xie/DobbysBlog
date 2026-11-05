@@ -1,6 +1,20 @@
-# Dobby’s Blog
+# Dobby's Home
 
 以文字为主的个人博客。Obsidian 写作，iCloud 同步到 Mac，本地单向导出公开内容，Astro 构建，Cloudflare Pages 托管。
+
+## 中英文版本
+
+中文版沿用 `/`，英文版位于 `/en/`。导航、关于页、归档、标签、搜索提示、图片查看器和图表工具栏均提供中英两种版本；页面顶部的 `EN / 中文` 按钮可以切换。两种语言各有搜索索引和 RSS：`/rss.xml`、`/en/rss.xml`。
+
+每篇笔记增加 `lang: zh` 或 `lang: en`；不填时保留原有的中文行为。对应译文使用相同的 `translationKey`，不填时默认采用 `slug`。同一文章的两种语言可以使用相同的 slug，并分别生成 `/posts/xxx/` 和 `/en/posts/xxx/`。如果使用不同 slug，请显式填写相同的 translationKey。一个 translationKey 在每种语言中只能有一篇公开文章。
+
+本次正式文档的译文位于 Vault 的 `Blog/Translations/en/` 和 `Blog/Translations/zh/`，作为独立笔记维护。文章内容不会在发布时自动重新翻译；原文修改后可以继续请求更新译文。译文的 `translationOf` 指向原文：只有原文仍勾选 publish 且不是草稿时，译文才会发布。尚无译文的文章只出现在它所属语言的列表中。切换语言时优先打开对应译文；没有译文时，按钮会说明并前往另一语言的首页。`examples/vault` 仍保留独立的双语测试样稿。
+
+当前这台 Mac 配置了 `scanVault: true`，按你的要求扫描整个 Vault，导出所有显式标记 `publish: true` 的非草稿笔记。隐藏目录和符号链接不会被扫描。默认配置仍只扫描专门的博客目录，可在不提交到 Git 的 `vault.local.json` 中选择范围。
+
+网址支持中文，并会把英文大写、空格和标点归一化。title 为空时采用文件名，slug 为空时根据标题生成，description 为空时取正文首段摘要，tags 为空时采用空列表；日期为空时采用本机文件创建日期。建议仍填写明确的日期，避免不同设备上的创建时间差异。
+
+《Why Does Biological Evolution Work?》中已确认丢失的配图，经你同意在中英两个版本中保留缺图提示；其他文章继续要求附件完整。此例外通过本机 `missingImageSources` 配置指定到文档，不会让其他缺图文章静默发布。
 
 ## 本地运行
 
@@ -44,7 +58,7 @@ featured: false
 ---
 ```
 
-只有 `Blog/Posts` 中明确标记 `publish: true` 且不是草稿的笔记被导出。元信息采用允许列表，个人自定义属性不进入博客。`slug` 必须唯一，只包含小写英文、数字和连字符；改标题不改网址。
+只有发布范围内明确标记 `publish: true` 且不是草稿的笔记被导出。元信息采用允许列表，个人自定义属性不进入博客。`slug` 在同一语言内必须唯一，支持中文；改标题时如需保持网址不变，请显式填写 slug。
 
 支持 Markdown、脚注、GFM 表格、`[[双链|别名]]`、标题链接、独占一行的公开笔记嵌入、`![[图片.png|说明]]`、Callout（含折叠）、代码、KaTeX 和 Mermaid。代码中的双链不会被转换。引用的笔记也必须已发布。当前不转换 Dataview、Canvas、块 ID 引用和原始 HTML；错误会在导入时给出。图片支持 PNG/JPEG/WebP/AVIF/GIF/TIFF，本地 SVG 暂不导入；图表使用 Mermaid，或导出 PNG。
 

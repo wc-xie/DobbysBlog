@@ -14,7 +14,9 @@ jobs:
           site='https://dobbysblog.pages.dev'
           curl --fail --show-error --silent --retry 5 --retry-all-errors --retry-delay 5 --max-time 20 "$site/" -o /tmp/blog-home.html
           python3 -c 'from pathlib import Path; text=Path("/tmp/blog-home.html").read_text(); assert "Dobby" in text and "最近的文字" in text'
-          for route in posts/writing-workbench/ pagefind/pagefind.js rss.xml robots.txt sitemap-index.xml; do
+          curl --fail --show-error --silent --max-time 30 "$site/en/" -o /tmp/blog-english.html
+          python3 -c 'from pathlib import Path; from html import unescape; text=unescape(Path("/tmp/blog-english.html").read_text()); assert "Dobby\x27s Home" in text and "Recent writing" in text and "lang=\"en\"" in text'
+          for route in en/posts/cardiac-autopilot/ en/posts/surgical-robots-reader-response/ en/posts/why-does-biological-evolution-work/ en/rss.xml pagefind/pagefind.js rss.xml robots.txt sitemap-index.xml; do
             curl --fail --show-error --silent --max-time 30 "$site/$route" -o /dev/null
             echo "Verified /$route"
           done

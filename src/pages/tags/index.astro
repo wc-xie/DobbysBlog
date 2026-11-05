@@ -1,8 +1,4 @@
 ---
-import Base from '../../layouts/Base.astro';
-import { getPosts } from '../../lib';
-import Icon from '../../components/Icon.astro';
-const posts = await getPosts();
-const tags = [...new Set(posts.flatMap(post => post.data.tags))].sort();
+import Page from "../../components/pages/Listing.astro";
 ---
-<Base title="标签"><header class="page-heading"><div class="eyebrow">FOLLOW YOUR CURIOSITY</div><h1>从一个主题出发<span>。</span></h1><p>想法彼此连接，也各有方向。</p></header><div class="tag-grid">{tags.map((tag, index) => <a href={`/tags/${encodeURIComponent(tag)}/`}><span class="tag-number">{String(index + 1).padStart(2, '0')}</span><h2>{tag}</h2><div><span>{posts.filter(post => post.data.tags.includes(tag)).length} 篇文章</span><Icon name="arrow" /></div></a>)}</div></Base>
+<Page lang="zh" kind="tags" />

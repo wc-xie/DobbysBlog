@@ -1,0 +1,30 @@
+---
+import Base from '../../layouts/Base.astro';
+import Icon from '../Icon.astro';
+import PostCard from '../PostCard.astro';
+import { getPosts, formatDate } from '../../lib';
+import { getCopy, localPath, postPath, tagPath, articleCount, otherLang, topicCounterpart, type Lang } from '../../i18n';
+interface Props { lang: Lang; kind: 'archive' | 'tags' | 'tag'; tag?: string; }
+const { lang, kind, tag = '' } = Astro.props;
+const t = getCopy(lang);
+const posts = await getPosts(lang);
+const years = [...new Set(posts.map(post => post.data.date.getUTCFullYear()))];
+const tags = [...new Set(posts.flatMap(post => post.data.tags))].sort();
+const matching = posts.filter(post => post.data.tags.includes(tag));
+const other = otherLang(lang);
+const translatedTag = topicCounterpart(tag, other);
+const otherPosts = kind === 'tag' ? await getPosts(other) : [];
+const hasTranslatedTag = otherPosts.some(post => post.data.tags.includes(translatedTag));
+const alternates = kind === 'tag' ? { [lang]: tagPath(lang, tag), ...(hasTranslatedTag ? { [other]: tagPath(other, translatedTag) } : {}) } : undefined;
+const title = kind === 'archive' ? t.archive : kind === 'tags' ? t.tags : tag;
+---
+<Base title={title} lang={lang} alternates={alternates}>
+  <header class="page-heading">
+    {kind === 'tag' ? <a class="back-link" href={localPath(lang, '/tags/')}>← {t.allTopics}</a> : <div class="eyebrow">{kind === 'archive' ? 'THE ARCHIVE' : 'FOLLOW YOUR CURIOSITY'}</div>}
+    <h1>{kind === 'archive' ? t.archiveTitle : kind === 'tags' ? t.tagTitle : tag}<span>{lang === 'en' ? '.' : '。'}</span></h1>
+    <p>{kind === 'archive' ? `${articleCount(lang, posts.length)}${lang === 'en' ? '. ' : '，'}${t.archiveDescription}` : kind === 'tags' ? t.tagDescription : articleCount(lang, matching.length)}</p>
+  </header>
+  {kind === 'archive' && <div class="archive-list">{years.map(year => <section><h2>{year}<span>{articleCount(lang, posts.filter(post => post.data.date.getUTCFullYear() === year).length)}</span></h2>{posts.filter(post => post.data.date.getUTCFullYear() === year).map(post => <a class="archive-row" href={postPath(post)}><time datetime={post.data.date.toISOString()}>{formatDate(post.data.date, lang)}</time><span>{post.data.title}</span><Icon name="arrow" size={18} /></a>)}</section>)}</div>}
+  {kind === 'tags' && <div class="tag-grid">{tags.map((item, index) => <a href={tagPath(lang, item)}><span class="tag-number">{String(index + 1).padStart(2, '0')}</span><h2>{item}</h2><div><span>{articleCount(lang, posts.filter(post => post.data.tags.includes(item)).length)}</span><Icon name="arrow" /></div></a>)}</div>}
+  {kind === 'tag' && <div class="narrow-list">{matching.map(post => <PostCard post={post} />)}</div>}
+</Base>

@@ -1,0 +1,39 @@
+---
+import { render, type CollectionEntry } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import Icon from '../Icon.astro';
+import { getPosts, formatDate, readingTime, postAlternates } from '../../lib';
+import { getCopy, localPath, postPath, tagPath } from '../../i18n';
+import { blog } from '../../../blog.config.mjs';
+import 'katex/dist/katex.min.css';
+interface Props { post: CollectionEntry<'posts'>; }
+const { post } = Astro.props;
+const lang = post.data.lang;
+const t = getCopy(lang);
+const { Content, headings } = await render(post);
+const toc = headings.filter(heading => heading.depth === 2 || heading.depth === 3);
+const related = (await getPosts(lang)).filter(item => item.id !== post.id && item.data.tags.some(tag => post.data.tags.includes(tag))).slice(0, 2);
+const alternates = await postAlternates(post.data.translationKey || post.data.slug);
+const structured = { '@context': 'https://schema.org', '@type': 'BlogPosting', headline: post.data.title, description: post.data.description, inLanguage: lang === 'en' ? 'en' : 'zh-CN', datePublished: post.data.date.toISOString(), dateModified: (post.data.updated || post.data.date).toISOString(), author: { '@type': 'Person', name: blog.author }, mainEntityOfPage: new URL(postPath(post), Astro.site).href };
+---
+<Base title={post.data.title} description={post.data.description} lang={lang} alternates={alternates} article>
+  <script type="application/ld+json" set:html={JSON.stringify(structured).replaceAll('<', '\\u003c')} />
+  <div class="reading-progress" aria-hidden="true"></div>
+  <div class="article-grid">
+    <article class="article" data-pagefind-body>
+      <header class="article-header">
+        <a class="back-link" href={localPath(lang)} data-pagefind-ignore>{t.backArticles}</a>
+        <div class="post-tags">{post.data.tags.map(tag => <a href={tagPath(lang, tag)}>{tag}</a>)}</div>
+        <h1 data-pagefind-meta="title">{post.data.title}</h1>
+        <p class="article-description">{post.data.description}</p>
+        <div class="article-meta"><span>{blog.author}</span><span>·</span><time datetime={post.data.date.toISOString()}>{formatDate(post.data.date, lang)}</time><span>·</span><span>{readingTime(post.body)} {t.minutes}</span>{post.data.updated && <span>{t.updated} {formatDate(post.data.updated, lang)}</span>}</div>
+      </header>
+      <div class="prose"><Content /></div>
+      <footer class="article-end" data-pagefind-ignore><span>{t.articleEnd}</span><button class="text-link" id="copy-link">{t.copyLink}<Icon name="arrow" size={16} /></button></footer>
+      {related.length > 0 && <section class="related" data-pagefind-ignore><h2>{t.related}</h2>{related.map(item => <a href={postPath(item)}><span>{item.data.title}</span><Icon name="arrow" size={18} /></a>)}</section>}
+    </article>
+    <aside class="article-toc" data-pagefind-ignore><div class="toc-sticky"><span class="aside-label">ON THIS PAGE</span><h2>{t.toc}</h2><nav aria-label={t.toc}>{toc.map(heading => <a href={`#${heading.slug}`} class:list={[{ nested: heading.depth === 3 }]}>{heading.text}</a>)}</nav><a class="back-top" href="#main">{t.backTop}</a></div></aside>
+  </div>
+  <dialog id="image-dialog" class="image-dialog" aria-label={t.imageViewer}><div class="viewer-toolbar"><span>{t.imageHint}</span><button class="icon-button" data-close-image aria-label={t.closeImage}><Icon name="close" /></button></div><div class="image-stage"><img id="full-image" alt="" /></div><p id="image-caption"></p></dialog>
+  <script>import '../../scripts/article';</script>
+</Base>

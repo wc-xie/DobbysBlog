@@ -18,6 +18,7 @@ const hash = (data) => createHash("sha256").update(data).digest("hex");
 const slash = (value) => value.split(path.sep).join("/");
 const isInside = (root, target) => target === root || (!path.relative(root, target).startsWith("..") && !path.isAbsolute(path.relative(root, target)));
 const isExternal = (url) => /^(https?:|mailto:)/i.test(url);
+export function normalizeSlug(value) { return String(value || '').normalize('NFKC').trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, ''); }
 
 async function readJson(file, fallback) {
   try { return JSON.parse(await fs.readFile(file, "utf8")); }
@@ -48,7 +49,7 @@ export async function syncVault(options = {}) {
   finally { await lock.close(); await fs.unlink(lockFile); }
 }
 
-async function performSyncVault({ vaultPath, contentRoots = ["Blog/Posts"], root = projectRoot, plan = false, allowRemovals = false } = {}) {
+async function performSyncVault({ vaultPath, contentRoots = ["Blog/Posts"], scanVault = false, overrides = {}, allowMissingImages = false, missingImageSources = [], root = projectRoot, plan = false, allowRemovals = false } = {}) {
   if (!vaultPath || !contentRoots.length) throw new Error("请先运行 npm run setup:vault，配置 Vault 路径。");
   const vault = await fs.realpath(vaultPath);
   const checkedRead = async (relative) => {
@@ -59,6 +60,7 @@ async function performSyncVault({ vaultPath, contentRoots = ["Blog/Posts"], root
     return fs.readFile(full);
   };
   const scanRoots = async () => {
+    if (scanVault) return (await listFiles(vault)).filter(file => file.endsWith('.md'));
     const found = [];
     for (const relative of contentRoots) {
       if (!relative || relative === "." || relative.split(/[\\/]/).some((part) => part === ".." || part.startsWith("."))) throw new Error("发布目录必须是 Vault 内的专用子目录。");
@@ -76,37 +78,61 @@ async function performSyncVault({ vaultPath, contentRoots = ["Blog/Posts"], root
     sourceHashes.set(file, hash(bytes));
     const parsed = matter(bytes.toString("utf8"));
     if (parsed.data.publish !== true || parsed.data.draft === true) continue;
+    if (parsed.data.translationOf) {
+      let original;
+      try { original = matter((await checkedRead(parsed.data.translationOf)).toString('utf8')); }
+      catch (error) { if (error.code === 'ENOENT') continue; throw error; }
+      if (original.data.publish !== true || original.data.draft === true) continue;
+    }
     if (parsed.data.draft !== undefined && parsed.data.draft !== false) throw new Error(`${file} 的 draft 必须使用布尔值 true 或 false。`);
-    const { title, slug, description, date, updated, tags = [], featured = false } = parsed.data;
+    const metadata = { ...parsed.data, ...overrides[file] };
+    const title = typeof metadata.title === 'string' && metadata.title.trim() ? metadata.title : path.posix.basename(file, '.md');
+    const slug = normalizeSlug(metadata.slug || title);
+    const lang = metadata.lang || 'zh';
+    const translationKey = normalizeSlug(metadata.translationKey || slug);
+    const tags = metadata.tags || [];
+    const featured = metadata.featured ?? false;
+    const date = metadata.date || (await fs.stat(path.join(vault, file))).birthtime;
+    const updated = metadata.updated;
+    const firstParagraph = processor.parse(parsed.content).children.find(node => node.type === 'paragraph' && toString(node).trim() && !toString(node).startsWith('!') && !/^(?:原文|来源|original(?: article)?|source)\s*[:：]/i.test(toString(node).trim()));
+    const description = typeof metadata.description === 'string' && metadata.description.trim() ? metadata.description : [...(firstParagraph ? toString(firstParagraph) : title)].slice(0, 160).join('');
+    if (!['zh', 'en'].includes(lang)) throw new Error(`${file} 的 lang 必须是 zh 或 en。`);
+    if (!/^[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*$/u.test(translationKey)) throw new Error(`${file} 的 translationKey 格式无效。`);
     if (typeof title !== "string" || !title.trim() || typeof description !== "string" || !description.trim()) throw new Error(`${file} 缺少 title 或 description。`);
-    if (typeof slug !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error(`${file} 的 slug 应为小写英文、数字和连字符。`);
+    if (!/^[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*$/u.test(slug)) throw new Error(`${file} 的 slug 无法生成有效网址。`);
     if (!date || Number.isNaN(new Date(date).valueOf()) || (updated && Number.isNaN(new Date(updated).valueOf()))) throw new Error(`${file} 的日期无效。`);
     if (!Array.isArray(tags) || tags.some((tag) => typeof tag !== "string" || !tag.trim()) || typeof featured !== "boolean") throw new Error(`${file} 的标签或 featured 格式无效。`);
-    const data = { title, slug, description, date: new Date(date).toISOString(), ...(updated ? { updated: new Date(updated).toISOString() } : {}), tags, featured, publish: true, draft: false };
+    const data = { title, slug, lang, translationKey, description, date: new Date(date).toISOString(), ...(updated ? { updated: new Date(updated).toISOString() } : {}), tags, featured, publish: true, draft: false };
     entries.push({ file, data, body: parsed.content, aliases: parsed.data.aliases || [] });
   }
   const slugs = new Set();
+  const translations = new Set();
   for (const entry of entries) {
-    if (slugs.has(entry.data.slug)) throw new Error(`文章网址重复：${entry.data.slug}`);
-    slugs.add(entry.data.slug);
+    const identity = `${entry.data.lang}:${entry.data.slug}`;
+    const translation = `${entry.data.lang}:${entry.data.translationKey}`;
+    if (slugs.has(identity)) throw new Error(`文章网址重复：${identity}`);
+    if (translations.has(translation)) throw new Error(`同一语言的译文关联重复：${translation}`);
+    slugs.add(identity);
+    translations.add(translation);
   }
   let oldManifest = await readJson(path.join(root, ".publish/last-sync.json"), null);
   if (!oldManifest) {
     const previousPosts = [];
     const directory = path.join(root, 'src/content/posts');
     let files = [];
-    try { files = await fs.readdir(directory); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    try { files = await listFiles(directory); } catch (error) { if (error.code !== 'ENOENT') throw error; }
     for (const file of files.filter(file => file.endsWith('.md'))) {
       const { data } = matter(await fs.readFile(path.join(directory, file), 'utf8'));
-      previousPosts.push({ slug: data.slug, title: data.title, hash: null });
+      previousPosts.push({ slug: data.slug, lang: data.lang || 'zh', title: data.title, hash: null });
     }
     oldManifest = { posts: previousPosts };
   }
-  const posts = entries.map((entry) => ({ source: entry.file, slug: entry.data.slug, title: entry.data.title, hash: sourceHashes.get(entry.file) }));
-  const removed = oldManifest.posts.filter((old) => !posts.some((post) => post.slug === old.slug));
-  const added = posts.filter((post) => !oldManifest.posts.some((old) => old.slug === post.slug));
-  const updated = posts.filter((post) => oldManifest.posts.some((old) => old.slug === post.slug && old.hash !== post.hash));
-  const summary = { added: added.map((p) => p.title), updated: updated.map((p) => p.title), removed: removed.map((p) => p.title), total: posts.length };
+  const posts = entries.map((entry) => ({ source: entry.file, slug: entry.data.slug, lang: entry.data.lang, title: entry.data.title, hash: sourceHashes.get(entry.file) }));
+  const sameIdentity = (a, b) => a.slug === b.slug && (a.lang || 'zh') === (b.lang || 'zh');
+  const removed = oldManifest.posts.filter((old) => !posts.some((post) => sameIdentity(post, old)));
+  const added = posts.filter((post) => !oldManifest.posts.some((old) => sameIdentity(old, post)));
+  const updated = posts.filter((post) => oldManifest.posts.some((old) => sameIdentity(old, post) && old.hash !== post.hash));
+  const summary = { added: added.map((p) => p.title), updated: updated.map((p) => p.title), removed: removed.map((p) => p.title), total: posts.length, missingImages: [] };
   if (removed.length && !allowRemovals && !plan) throw new Error(`本次将撤下 ${removed.length} 篇文章。请先运行 npm run sync:plan；确认后使用 npm run sync -- --allow-removals。同步未完成时不要撤下文章。`);
 
   // Resolve only approved articles; private note metadata never enters this index.
@@ -119,6 +145,9 @@ async function performSyncVault({ vaultPath, contentRoots = ["Blog/Posts"], root
     });
     if (candidates.length === 1) return candidates[0];
     const byName = entries.filter((entry) => path.posix.basename(entry.file, ".md") === withoutExtension || entry.data.title === target || (Array.isArray(entry.aliases) && entry.aliases.includes(target)));
+    const fromLanguage = entries.find(entry => entry.file === from)?.data.lang;
+    const localMatches = byName.filter(entry => entry.data.lang === fromLanguage);
+    if (localMatches.length === 1) return localMatches[0];
     if (byName.length === 1) return byName[0];
     throw new Error(`${from} 引用的「${target}」未发布、不存在或名称不唯一。`);
   }
@@ -135,7 +164,11 @@ async function performSyncVault({ vaultPath, contentRoots = ["Blog/Posts"], root
     }
     allFiles ??= await listFiles(vault);
     const matches = allFiles.filter((file) => file === normalized || (path.posix.basename(normalized) === normalized && path.posix.basename(file) === normalized));
-    if (matches.length !== 1) throw new Error(`${from} 引用的图片「${target}」不存在或名称不唯一。`);
+    if (matches.length !== 1) {
+      const error = new Error(`${from} 引用的图片「${target}」不存在或名称不唯一。`);
+      error.code = matches.length ? 'ASSET_AMBIGUOUS' : 'ASSET_MISSING';
+      throw error;
+    }
     return matches[0];
   }
 
@@ -144,7 +177,14 @@ async function performSyncVault({ vaultPath, contentRoots = ["Blog/Posts"], root
       if (!/^https:\/\//i.test(target)) throw new Error("外部图片需要 HTTPS 地址。");
       return { type: "image", url: target, alt };
     }
-    const file = await findAsset(target, from);
+    let file;
+    try { file = await findAsset(target, from); }
+    catch (error) {
+      if ((!allowMissingImages && !missingImageSources.includes(from)) || error.code !== 'ASSET_MISSING') throw error;
+      if (!summary.missingImages.includes(target)) summary.missingImages.push(target);
+      const english = entries.find(entry => entry.file === from)?.data.lang === 'en';
+      return { type: 'emphasis', children: [{ type: 'text', value: english ? '[Image unavailable: the source image is missing.]' : '【配图暂缺：原始图片文件已丢失。】' }] };
+    }
     const extension = path.extname(file).toLowerCase();
     if (![".png", ".jpg", ".jpeg", ".webp", ".avif", ".gif", ".tif", ".tiff"].includes(extension)) throw new Error(`暂不直接导入 ${extension} 附件；矢量图请导出为 PNG，或使用 Mermaid。`);
     const bytes = await checkedRead(file);
@@ -182,7 +222,7 @@ async function performSyncVault({ vaultPath, contentRoots = ["Blog/Posts"], root
           const note = target ? findNote(target, entry.file) : entry;
           if (match[1]) throw new Error(`笔记嵌入请独占一行：${match[0]}`);
           if (heading) assertHeading(note, heading);
-          result.push({ type: "link", url: `/posts/${note.data.slug}/${heading ? `#${headingSlug(heading)}` : ""}`, children: [{ type: "text", value: label || heading || note.data.title }] });
+          result.push({ type: "link", url: `${note.data.lang === 'en' ? '/en' : ''}/posts/${encodeURIComponent(note.data.slug)}/${heading ? `#${headingSlug(heading)}` : ""}`, children: [{ type: "text", value: label || heading || note.data.title }] });
         }
         offset = match.index + match[0].length;
       }
@@ -197,7 +237,7 @@ async function performSyncVault({ vaultPath, contentRoots = ["Blog/Posts"], root
         if (!isExternal(node.url) && !node.url.startsWith("#")) {
           const [target, anchor] = decodeURIComponent(node.url).split("#");
           const note = findNote(target, entry.file);
-          node.url = `/posts/${note.data.slug}/${anchor ? `#${headingSlug(anchor)}` : ""}`;
+          node.url = `${note.data.lang === 'en' ? '/en' : ''}/posts/${encodeURIComponent(note.data.slug)}/${anchor ? `#${headingSlug(anchor)}` : ""}`;
         }
       }
       if (!node.children) return;
@@ -227,7 +267,7 @@ async function performSyncVault({ vaultPath, contentRoots = ["Blog/Posts"], root
   const rendered = [];
   for (const entry of entries) {
     const tree = await transform(entry);
-    rendered.push({ slug: entry.data.slug, text: matter.stringify(processor.stringify(tree), entry.data) });
+    rendered.push({ slug: `${entry.data.lang === 'en' ? 'en/' : ''}${entry.data.slug}`, text: matter.stringify(processor.stringify(tree), entry.data) });
   }
   if (JSON.stringify(initialFiles) !== JSON.stringify(await scanRoots())) throw new Error("导入时 Vault 文件列表发生变化，请等待 iCloud 同步完成后重试。");
   for (const [file, digest] of [...sourceHashes, ...assetReads]) {
@@ -242,7 +282,11 @@ async function performSyncVault({ vaultPath, contentRoots = ["Blog/Posts"], root
   await fs.mkdir(stageMedia, { recursive: true });
   const mediaManifest = {};
   try {
-    for (const post of rendered) await fs.writeFile(path.join(stagePosts, `${post.slug}.md`), post.text);
+    for (const post of rendered) {
+      const filename = path.join(stagePosts, `${post.slug}.md`);
+      await fs.mkdir(path.dirname(filename), { recursive: true });
+      await fs.writeFile(filename, post.text);
+    }
     for (const asset of assets.values()) {
       const name = asset.digest.slice(0, 20);
       const variants = [];

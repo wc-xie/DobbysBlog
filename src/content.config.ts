@@ -3,10 +3,12 @@ import { z } from "astro/zod";
 import { glob } from "astro/loaders";
 
 const posts = defineCollection({
-  loader: glob({ pattern: "**/*.md", base: "./src/content/posts" }),
+  loader: glob({ pattern: "**/*.md", base: "./src/content/posts", generateId: ({ entry }) => entry.replace(/\.md$/, '') }),
   schema: z.object({
     title: z.string(),
-    slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    slug: z.string().regex(/^[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*$/u),
+    lang: z.enum(['zh', 'en']).default('zh'),
+    translationKey: z.string().regex(/^[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*$/u).optional(),
     description: z.string(),
     date: z.coerce.date(),
     updated: z.coerce.date().optional(),

@@ -1,0 +1,7 @@
+---
+import Page from '../../../components/pages/Post.astro';
+import { getPosts } from '../../../lib';
+export async function getStaticPaths() { return (await getPosts('en')).map(post => ({ params: { slug: post.data.slug }, props: { post } })); }
+const { post } = Astro.props;
+---
+<Page post={post} />

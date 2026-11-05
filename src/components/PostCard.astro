@@ -1,13 +1,16 @@
 ---
 import type { CollectionEntry } from 'astro:content';
 import { formatDate, readingTime } from '../lib';
+import { getCopy, postPath, tagPath } from '../i18n';
 import Icon from './Icon.astro';
 interface Props { post: CollectionEntry<'posts'>; index?: number; }
 const { post, index = 0 } = Astro.props;
+const lang = post.data.lang;
+const t = getCopy(lang);
 ---
 <article class="post-card" style={`--order:${index}`}>
-  <div class="post-card-meta"><time datetime={post.data.date.toISOString()}>{formatDate(post.data.date)}</time><span class="meta-dot">·</span><span>{readingTime(post.body)} 分钟阅读</span>{post.data.featured && <span class="featured-label">置顶</span>}</div>
-  <h2><a href={`/posts/${post.data.slug}/`}>{post.data.title}</a></h2>
+  <div class="post-card-meta"><time datetime={post.data.date.toISOString()}>{formatDate(post.data.date, lang)}</time><span class="meta-dot">·</span><span>{readingTime(post.body)} {t.minutes}</span>{post.data.featured && <span class="featured-label">{t.featured}</span>}</div>
+  <h2><a href={postPath(post)}>{post.data.title}</a></h2>
   <p>{post.data.description}</p>
-  <div class="post-card-bottom"><div class="post-tags">{post.data.tags.map(tag => <a href={`/tags/${encodeURIComponent(tag)}/`}>{tag}</a>)}</div><a class="read-link" href={`/posts/${post.data.slug}/`} aria-label={`阅读 ${post.data.title}`}>阅读全文 <Icon name="arrow" size={17} /></a></div>
+  <div class="post-card-bottom"><div class="post-tags">{post.data.tags.map(tag => <a href={tagPath(lang, tag)}>{tag}</a>)}</div><a class="read-link" href={postPath(post)} aria-label={`${t.read} ${post.data.title}`}>{t.readMore} <Icon name="arrow" size={17} /></a></div>
 </article>

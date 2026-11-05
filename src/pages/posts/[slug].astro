@@ -1,28 +1,7 @@
 ---
-import { render } from 'astro:content';
-import Base from '../../layouts/Base.astro';
-import Icon from '../../components/Icon.astro';
-import { getPosts, formatDate, readingTime } from '../../lib';
-import 'katex/dist/katex.min.css';
-export async function getStaticPaths() { return (await getPosts()).map(post => ({ params: { slug: post.data.slug }, props: { post } })); }
+import Page from '../../components/pages/Post.astro';
+import { getPosts } from '../../lib';
+export async function getStaticPaths() { return (await getPosts('zh')).map(post => ({ params: { slug: post.data.slug }, props: { post } })); }
 const { post } = Astro.props;
-const { Content, headings } = await render(post);
-const toc = headings.filter(heading => heading.depth === 2 || heading.depth === 3);
-const related = (await getPosts()).filter(item => item.id !== post.id && item.data.tags.some(tag => post.data.tags.includes(tag))).slice(0, 2);
-const structured = { '@context': 'https://schema.org', '@type': 'BlogPosting', headline: post.data.title, description: post.data.description, datePublished: post.data.date.toISOString(), dateModified: (post.data.updated || post.data.date).toISOString(), author: { '@type': 'Person', name: 'Dobby' }, mainEntityOfPage: Astro.url.href };
 ---
-<Base title={post.data.title} description={post.data.description} article>
-  <script type="application/ld+json" set:html={JSON.stringify(structured).replaceAll('<', '\\u003c')} />
-  <div class="reading-progress" aria-hidden="true"></div>
-  <div class="article-grid">
-    <article class="article" data-pagefind-body>
-      <header class="article-header"><a class="back-link" href="/" data-pagefind-ignore>← 返回文章</a><div class="post-tags">{post.data.tags.map(tag => <a href={`/tags/${encodeURIComponent(tag)}/`}>{tag}</a>)}</div><h1 data-pagefind-meta="title">{post.data.title}</h1><p class="article-description">{post.data.description}</p><div class="article-meta"><span>Dobby</span><span>·</span><time datetime={post.data.date.toISOString()}>{formatDate(post.data.date)}</time><span>·</span><span>{readingTime(post.body)} 分钟阅读</span>{post.data.updated && <span>更新于 {formatDate(post.data.updated)}</span>}</div></header>
-      <div class="prose"><Content /></div>
-      <footer class="article-end" data-pagefind-ignore><span>— 感谢你读到这里 —</span><button class="text-link" id="copy-link">复制文章链接 <Icon name="arrow" size={16} /></button></footer>
-      {related.length > 0 && <section class="related" data-pagefind-ignore><h2>继续阅读</h2>{related.map(item => <a href={`/posts/${item.data.slug}/`}><span>{item.data.title}</span><Icon name="arrow" size={18} /></a>)}</section>}
-    </article>
-    <aside class="article-toc" data-pagefind-ignore><div class="toc-sticky"><span class="aside-label">ON THIS PAGE</span><h2>文章目录</h2><nav aria-label="文章目录">{toc.map(heading => <a href={`#${heading.slug}`} class:list={[{ nested: heading.depth === 3 }]}>{heading.text}</a>)}</nav><a class="back-top" href="#main">回到顶部 ↑</a></div></aside>
-  </div>
-  <dialog id="image-dialog" class="image-dialog" aria-label="高清图片查看器"><div class="viewer-toolbar"><span>高清查看 · 点击图片切换原始尺寸</span><button class="icon-button" data-close-image aria-label="关闭图片"><Icon name="close" /></button></div><div class="image-stage"><img id="full-image" alt="" /></div><p id="image-caption"></p></dialog>
-  <script>import '../../scripts/article';</script>
-</Base>
+<Page post={post} />

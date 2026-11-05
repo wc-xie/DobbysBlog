@@ -1,3 +1,6 @@
+import { getCopy } from '../i18n';
+export const t = getCopy(document.documentElement.dataset.language === 'en' ? 'en' : 'zh');
+
 export function toast(message: string) {
   document.querySelector('.toast')?.remove();
   const element = document.createElement('div');
@@ -9,7 +12,7 @@ export function toast(message: string) {
 }
 
 const themeButton = document.querySelector<HTMLButtonElement>('#theme-toggle');
-function updateThemeLabel() { themeButton?.setAttribute('aria-label', document.documentElement.dataset.theme === 'dark' ? '切换浅色模式' : '切换深色模式'); }
+function updateThemeLabel() { themeButton?.setAttribute('aria-label', document.documentElement.dataset.theme === 'dark' ? t.light : t.dark); }
 updateThemeLabel();
 themeButton?.addEventListener('click', () => {
   const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
@@ -35,11 +38,11 @@ async function openSearch() {
     });
     const PagefindUI = (window as unknown as { PagefindUI: new (options: Record<string, unknown>) => unknown }).PagefindUI;
     if (container) container.innerHTML = '';
-    new PagefindUI({ element: '#search', showSubResults: true, showImages: false, translations: { placeholder: '搜索文章、主题或关键词…', zero_results: '没有找到“[SEARCH_TERM]”，换个词试试。', clear_search: '清除', searching: '正在寻找…', one_result: '找到 [COUNT] 个结果', many_results: '找到 [COUNT] 个结果' } });
+    new PagefindUI({ element: '#search', showSubResults: true, showImages: false, translations: t.searchTranslations });
     searchLoaded = true;
     container?.querySelector<HTMLInputElement>('input')?.focus();
   } catch {
-    if (container) container.textContent = '搜索暂时不可用，请稍后重试。你也可以通过归档或标签浏览文章。';
+    if (container) container.textContent = t.searchUnavailable;
   } finally { searchLoading = false; }
 }
 document.querySelector('#open-search')?.addEventListener('click', openSearch);

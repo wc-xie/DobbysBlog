@@ -1,11 +1,11 @@
-import { toast } from './site';
+import { toast, t } from './site';
 
 document.querySelectorAll<HTMLButtonElement>('[data-copy-code]').forEach(button => button.addEventListener('click', async () => {
-  try { await navigator.clipboard.writeText(button.parentElement?.querySelector('code')?.textContent || ''); button.textContent = '已复制'; setTimeout(() => { button.textContent = '复制'; }, 1800); }
-  catch { toast('复制失败，请手动选择代码。'); }
+  try { await navigator.clipboard.writeText(button.parentElement?.querySelector('code')?.textContent || ''); button.textContent = t.copied; setTimeout(() => { button.textContent = t.copyCode; }, 1800); }
+  catch { toast(t.copyFailed); }
 }));
 document.querySelector('#copy-link')?.addEventListener('click', async () => {
-  try { await navigator.clipboard.writeText(location.href); toast('文章链接已复制'); } catch { toast('复制失败，请复制浏览器中的网址。'); }
+  try { await navigator.clipboard.writeText(location.href); toast(t.linkCopied); } catch { toast(t.linkFailed); }
 });
 
 const imageDialog = document.querySelector<HTMLDialogElement>('#image-dialog');
@@ -55,11 +55,11 @@ async function renderDiagrams() {
     wrapper.className = 'diagram';
     const toolbar = document.createElement('div');
     toolbar.className = 'diagram-toolbar';
-    toolbar.innerHTML = '<span>DIAGRAM</span><button type="button" data-action="out" aria-label="缩小流程图">−</button><button type="button" data-action="in" aria-label="放大流程图">＋</button><button type="button" data-action="reset">重置</button><button type="button" data-action="fullscreen">全屏</button><button type="button" data-action="download">SVG ↓</button>';
+    toolbar.innerHTML = `<span>DIAGRAM</span><button type="button" data-action="out" aria-label="${t.zoomOut}">−</button><button type="button" data-action="in" aria-label="${t.zoomIn}">＋</button><button type="button" data-action="reset">${t.reset}</button><button type="button" data-action="fullscreen">${t.fullscreen}</button><button type="button" data-action="download">SVG ↓</button>`;
     const viewport = document.createElement('div');
     viewport.className = 'diagram-viewport';
     viewport.setAttribute('tabindex', '0');
-    viewport.setAttribute('aria-label', '流程图，使用按钮缩放，拖动查看');
+    viewport.setAttribute('aria-label', t.diagramLabel);
     const canvas = document.createElement('div');
     canvas.className = 'diagram-canvas';
     viewport.append(canvas);
@@ -85,7 +85,7 @@ async function renderDiagrams() {
         zoom(Math.min(1, (viewport.clientWidth - 50) / nativeWidth));
       } catch {
         canvas.innerHTML = '';
-        const error = document.createElement('p'); error.className = 'diagram-error'; error.textContent = '这张图暂时无法渲染，下面保留图表源码。';
+        const error = document.createElement('p'); error.className = 'diagram-error'; error.textContent = t.diagramError;
         const fallback = document.createElement('pre'); fallback.textContent = code;
         canvas.append(error, fallback);
       }
@@ -99,7 +99,7 @@ async function renderDiagrams() {
       if (action === 'reset') { zoom(Math.min(1, (viewport.clientWidth - 50) / nativeWidth)); viewport.scrollTo(0, 0); }
       if (action === 'fullscreen') {
         try { if (document.fullscreenElement) await document.exitFullscreen(); else await wrapper.requestFullscreen(); }
-        catch { toast('当前浏览器不支持全屏，可使用缩放按钮查看。'); }
+        catch { toast(t.fullscreenError); }
       }
       if (action === 'download' && svgText) {
         const url = URL.createObjectURL(new Blob([svgText], { type: 'image/svg+xml' }));
@@ -113,4 +113,4 @@ async function renderDiagrams() {
     viewport.addEventListener('pointercancel', () => { drag = undefined; });
   }
 }
-renderDiagrams().catch(() => toast('图表加载失败，请刷新页面重试。'));
+renderDiagrams().catch(() => toast(t.diagramLoadError));

@@ -1,0 +1,20 @@
+---
+import Base from '../../layouts/Base.astro';
+import Icon from '../Icon.astro';
+import { getCopy, localPath, type Lang } from '../../i18n';
+interface Props { lang: Lang; }
+const { lang } = Astro.props;
+const t = getCopy(lang);
+---
+<Base title={t.about} lang={lang}>
+  <div class="about-layout">
+    <header class="page-heading"><div class="eyebrow">{t.aboutEyebrow}</div><h1>{t.hello}</h1><p>{t.footer}</p></header>
+    <div class="prose about-prose">
+      <p>{t.aboutWelcome}</p><p>{t.aboutIntro}</p>
+      <h2>{t.whyWrite}</h2><p>{t.whyWriteBody}</p><p>{t.aboutHope}</p>
+      <blockquote><p>{t.slow}</p></blockquote>
+      <h2>{t.keepInTouch}</h2><p>{t.keepInTouchBody}</p>
+      <a class="button-primary" href={localPath(lang, '/rss.xml')}><Icon name="rss" size={18} />{t.subscribeBlog}</a>
+    </div>
+  </div>
+</Base>

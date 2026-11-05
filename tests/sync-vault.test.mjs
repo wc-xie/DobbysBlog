@@ -126,3 +126,67 @@ test('removal guard survives a fresh checkout without local sync history', async
   await f.write('Blog/Posts/a.md', note({ publish: false }));
   await assert.rejects(f.sync(), /撤下/);
 });
+test('translations may share a slug and links stay within their language', async t => {
+  const f = await fixture(t);
+  await f.write('Blog/Posts/zh/a.md', note({ slug: 'shared', body: '[[b]]' }));
+  await f.write('Blog/Posts/zh/b.md', note({ slug: 'linked', title: '中文链接' }));
+  await f.write('Blog/Posts/en/a.md', note({ slug: 'shared', title: 'English article', extra: 'lang: en\ntranslationKey: shared\n', body: '[[b]]' }));
+  await f.write('Blog/Posts/en/b.md', note({ slug: 'linked', title: 'English linked article', extra: 'lang: en\n' }));
+  assert.equal((await f.sync()).total, 4);
+  const chinese = await fs.readFile(path.join(f.root, 'src/content/posts/shared.md'), 'utf8');
+  const english = await fs.readFile(path.join(f.root, 'src/content/posts/en/shared.md'), 'utf8');
+  assert.match(chinese, /\]\(\/posts\/linked\/\)/);
+  assert.match(english, /\]\(\/en\/posts\/linked\/\)/);
+  assert.match(english, /lang: en/);
+  assert.match(english, /translationKey: shared/);
+});
+test('removal protection tracks each translation independently, even without local history', async t => {
+  const f = await fixture(t);
+  await f.write('Blog/Posts/a.md', note());
+  await f.write('Blog/Posts/en.md', note({ title: 'English', extra: 'lang: en\n' }));
+  await f.sync();
+  await fs.unlink(path.join(f.root, '.publish/last-sync.json'));
+  await f.write('Blog/Posts/en.md', note({ publish: false, extra: 'lang: en\n' }));
+  assert.deepEqual((await f.sync({ plan: true })).removed, ['English']);
+  await assert.rejects(f.sync(), /撤下/);
+  await f.sync({ allowRemovals: true });
+  assert.deepEqual(await fs.readdir(path.join(f.root, 'src/content/posts')), ['first.md']);
+});
+test('invalid languages and duplicate translation pairs cannot be published', async t => {
+  const f = await fixture(t);
+  await f.write('Blog/Posts/a.md', note({ extra: 'lang: fr\n' }));
+  await assert.rejects(f.sync(), /lang/);
+  await f.write('Blog/Posts/a.md', note({ extra: 'lang: en\ntranslationKey: same\n' }));
+  await f.write('Blog/Posts/b.md', note({ slug: 'second', extra: 'lang: en\ntranslationKey: same\n' }));
+  await assert.rejects(f.sync(), /译文关联重复/);
+});
+test('explicit vault scope imports flagged notes outside Blog and fills empty properties', async t => {
+  const f = await fixture(t);
+  await f.write('Research/心脏的AutoPilot.md', '---\npublish: true\ndraft: false\nslug:\ndescription:\ntags:\ndate: 2026-11-05\n---\n# 心脏的AutoPilot\n\n用高密度传感器理解心血管状态。\n');
+  assert.equal((await f.sync()).total, 0);
+  assert.equal((await f.sync({ scanVault: true })).total, 1);
+  const output = await fs.readFile(path.join(f.root, 'src/content/posts/心脏的autopilot.md'), 'utf8');
+  assert.match(output, /title: 心脏的AutoPilot/);
+  assert.match(output, /description: 用高密度传感器理解心血管状态/);
+  assert.match(output, /tags: \[\]/);
+});
+test('missing-image opt-in renders a marker but never permits ambiguous or unsafe files', async t => {
+  const f = await fixture(t);
+  await f.write('Blog/Posts/a.md', note({ body: '![[missing.png]]' }));
+  await assert.rejects(f.sync(), /不存在/);
+  const summary = await f.sync({ allowMissingImages: true });
+  assert.deepEqual(summary.missingImages, ['missing.png']);
+  assert.match(await fs.readFile(path.join(f.root, 'src/content/posts/first.md'), 'utf8'), /配图暂缺/);
+  await f.write('One/missing.png', 'one');
+  await f.write('Two/missing.png', 'two');
+  await assert.rejects(f.sync({ allowMissingImages: true }), /不唯一/);
+});
+test('translation publication follows the original publication flag', async t => {
+  const f = await fixture(t);
+  await f.write('Blog/Posts/a.md', note());
+  await f.write('Blog/Posts/english.md', note({ extra: 'lang: en\ntranslationOf: Blog/Posts/a.md\n' }));
+  assert.equal((await f.sync()).total, 2);
+  await f.write('Blog/Posts/a.md', note({ publish: false }));
+  assert.equal((await f.sync({ plan: true })).total, 0);
+  await assert.rejects(f.sync(), /撤下/);
+});
