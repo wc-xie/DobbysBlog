@@ -1,0 +1,8 @@
+---
+import Base from '../layouts/Base.astro';
+import { getPosts, formatDate } from '../lib';
+import Icon from '../components/Icon.astro';
+const posts = await getPosts();
+const years = [...new Set(posts.map(post => post.data.date.getUTCFullYear()))];
+---
+<Base title="归档"><header class="page-heading"><div class="eyebrow">THE ARCHIVE</div><h1>文字的时间线<span>。</span></h1><p>共 {posts.length} 篇记录，每一篇都是一个思考的坐标。</p></header><div class="archive-list">{years.map(year => <section><h2>{year}<span>{posts.filter(post => post.data.date.getUTCFullYear() === year).length} 篇</span></h2>{posts.filter(post => post.data.date.getUTCFullYear() === year).map(post => <a class="archive-row" href={`/posts/${post.data.slug}/`}><time>{formatDate(post.data.date).slice(5)}</time><span>{post.data.title}</span><Icon name="arrow" size={18} /></a>)}</section>)}</div></Base>

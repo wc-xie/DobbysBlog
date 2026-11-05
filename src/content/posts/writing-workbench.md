@@ -1,0 +1,119 @@
+---
+title: 写作的工作台：图片、公式与图表
+slug: writing-workbench
+description: 一份可直接编辑的排版样稿。让清晰的文字、高清配图与严谨的表达出现在同一张工作台上。
+date: '2026-11-03T00:00:00.000Z'
+tags:
+  - 技术
+  - 写作
+  - 示例
+featured: false
+publish: true
+draft: false
+---
+> \[!note] 排版样稿
+> 这里的每一段内容都可以在 Obsidian 中直接修改，用来验证你的写作习惯是否适合网页阅读。
+
+文字是主体。图片、代码与图表的作用，是在需要的时候让表达更准确。
+
+## 高清图片
+
+下面是一张 3200 像素宽的测试图。正文按设备尺寸加载，点击图片可以查看高清版本。
+
+![山峦与河流：高清图片展示样稿](/media/86b8a1b7992392656195.webp)
+
+图片说明可以直接写在下面。图片文件名、文章标题和正文均支持中文。
+
+## 代码与可复现的过程
+
+围栏代码块标明语言，网页会自动高亮。复制按钮保留代码原有的换行与缩进。
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class Observation:
+    question: str
+    evidence: list[str]
+
+note = Observation(
+    question="这个现象还可以怎样解释？",
+    evidence=["先记录事实", "再检验假设"],
+)
+print(note.question)
+```
+
+## 数学公式
+
+行内公式，例如 $E = mc^2$，可以自然地放进句子。更长的推导使用独立公式：
+
+$$
+P(H \mid D) = \frac{P(D \mid H)\,P(H)}{P(D)}
+$$
+
+矩阵、求和与积分也可以使用：
+
+$$
+\mathbf{A}=\begin{pmatrix}1 & 2 \\ 3 & 4\end{pmatrix},
+\qquad
+\int_0^1 x^2\,\mathrm{d}x=\frac{1}{3}
+$$
+
+## 复杂流程图
+
+分组与反馈关系可以帮助读者理解完整过程。工具栏支持缩放、全屏与 SVG 下载。
+
+```mermaid
+---
+config:
+  layout: elk
+---
+flowchart TB
+    subgraph observe[观察与提问]
+        A[记录现象] --> B[提出问题]
+    end
+    subgraph explore[探索与检验]
+        B --> C[建立假设]
+        C --> D[设计实验]
+        D --> E{证据是否支持}
+        E -->|暂不支持| C
+    end
+    subgraph reflect[表达与反思]
+        E -->|支持| F[整理结论]
+        F --> G[公开方法与边界]
+        G --> H[接收新证据]
+    end
+    H -.重新检验.-> B
+```
+
+### 时序图
+
+```mermaid
+sequenceDiagram
+    participant A as 作者
+    participant N as 笔记
+    participant R as 读者
+    A->>N: 写下一个问题
+    A->>N: 补充证据与推理
+    N->>R: 呈现文章
+    R-->>A: 带来新的视角
+```
+
+## 引用、提示与脚注
+
+> \[!tip] 保持表达清晰
+> 先说问题，再给证据，最后交代判断的适用范围。
+
+> \[!question]- 一个可以折叠的问题
+> 这段文字演示 Obsidian 的可折叠 Callout。
+
+一段引用与一个脚注，常常足以为读者提供继续探索的方向。[^note]
+
+| 表达形式 | 适合的内容      |
+| ---- | ---------- |
+| 文字   | 解释、叙述与论证   |
+| 代码   | 可复现的具体过程   |
+| 公式   | 精确定义与推导    |
+| 图表   | 结构、关系与时间顺序 |
+
+[^note]: 这是一条排版示例脚注。正式文章中可以替换为原始文献、补充解释或资料链接。

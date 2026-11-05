@@ -1,0 +1,61 @@
+---
+import { blog } from '../../blog.config.mjs';
+import Icon from '../components/Icon.astro';
+import '../styles/global.css';
+interface Props { title?: string; description?: string; article?: boolean; }
+const { title, description = blog.description, article = false } = Astro.props;
+const path = Astro.url.pathname;
+const canonical = new URL(path, Astro.site);
+const navigation = [{ href: '/', label: '文章' }, { href: '/archive/', label: '归档' }, { href: '/tags/', label: '标签' }, { href: '/about/', label: '关于' }];
+---
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#f8f7f3" />
+    <meta name="color-scheme" content="light dark" />
+    <title>{title ? `${title} · ${blog.title}` : `${blog.title} · 记录与思考`}</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" type="application/rss+xml" title={blog.title} href="/rss.xml" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:type" content={article ? 'article' : 'website'} />
+    <meta property="og:title" content={title || blog.title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content={blog.title} />
+    <meta name="twitter:card" content="summary" />
+    <script is:inline>
+      try {
+        const preference = localStorage.getItem('theme');
+        document.documentElement.dataset.theme = preference || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      } catch { document.documentElement.dataset.theme = 'light'; }
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">跳到正文</a>
+    <header class="site-header shell" data-pagefind-ignore>
+      <a class="brand" href="/" aria-label="Dobby’s Blog 首页"><span class="brand-mark">d<span>·</span></span><span>Dobby’s Blog<small>A PLACE FOR THOUGHTS</small></span></a>
+      <nav aria-label="主导航">{navigation.map(item => <a href={item.href} class:list={[{ active: item.href === '/' ? path === '/' || path.startsWith('/posts/') : path.startsWith(item.href) }]} aria-current={item.href === path ? 'page' : undefined}>{item.label}</a>)}</nav>
+      <div class="header-tools">
+        <button class="icon-button" id="open-search" aria-label="搜索文章"><Icon name="search" /><kbd>⌘ K</kbd></button>
+        <span class="tool-divider"></span>
+        <button class="icon-button theme-toggle" id="theme-toggle" aria-label="切换深色模式"><span class="sun"><Icon name="sun" /></span><span class="moon"><Icon name="moon" /></span></button>
+      </div>
+    </header>
+    <main id="main" class="shell"><slot /></main>
+    <footer class="site-footer shell" data-pagefind-ignore>
+      <div><a class="footer-wordmark" href="/">Dobby’s Blog<span>·</span></a><p>保持好奇，认真生活。</p></div>
+      <div class="footer-right"><div><a href="/rss.xml" aria-label="订阅 RSS"><Icon name="rss" size={17} /><span>RSS</span></a><a href={blog.github} aria-label="GitHub"><Icon name="github" size={17} /><span>GitHub</span></a></div><small>© {new Date().getFullYear()} {blog.author} · 文字与思想的自留地</small></div>
+    </footer>
+    <dialog id="search-dialog" class="search-dialog" aria-labelledby="search-title">
+      <div class="dialog-header"><h2 id="search-title">寻找一个想法</h2><button class="icon-button" data-close-search aria-label="关闭搜索"><Icon name="close" /></button></div>
+      <div id="search" class="search-content"><p>正在准备搜索…</p></div>
+    </dialog>
+    <script>
+      import '../scripts/site';
+    </script>
+  </body>
+</html>

@@ -1,0 +1,4 @@
+{
+  "vaultPath": "/absolute/path/to/your/vault",
+  "contentRoots": ["Blog/Posts"]
+}

@@ -1,0 +1,50 @@
+{
+  "name": "dobbys-blog",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.23.4"
+  },
+  "scripts": {
+    "dev": "ASTRO_TELEMETRY_DISABLED=1 astro dev --host 127.0.0.1",
+    "build": "ASTRO_TELEMETRY_DISABLED=1 astro build && pagefind --site dist && node scripts/check-output.mjs",
+    "preview": "ASTRO_TELEMETRY_DISABLED=1 astro preview --host 127.0.0.1",
+    "check": "ASTRO_TELEMETRY_DISABLED=1 astro check",
+    "test": "node --test tests/*.test.mjs",
+    "sync": "node scripts/sync-vault.mjs",
+    "sync:plan": "node scripts/sync-vault.mjs --plan",
+    "publish": "node scripts/publish.mjs",
+    "setup:vault": "node scripts/setup-vault.mjs"
+  },
+  "dependencies": {
+    "@astrojs/markdown-remark": "7.3.5",
+    "@astrojs/rss": "^4.0.0",
+    "@astrojs/sitemap": "^3.7.0",
+    "astro": "7.4.5",
+    "github-slugger": "^2.0.0",
+    "gray-matter": "^4.0.3",
+    "hast-util-to-string": "^3.0.1",
+    "katex": "^0.19.0",
+    "mdast-util-to-string": "^4.0.0",
+    "mermaid": "12.3.0",
+    "rehype-katex": "^7.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-stringify": "^11.0.0",
+    "sharp": "0.35.5",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.0.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.12",
+    "node": "24.22.2",
+    "pagefind": "^1.6.0",
+    "playwright": "^1.56.0",
+    "typescript": "^5.9.0"
+  },
+  "overrides": {
+    "katex": "$katex"
+  }
+}
