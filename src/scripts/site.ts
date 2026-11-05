@@ -39,7 +39,7 @@ async function openSearch() {
     searchLoaded = true;
     container?.querySelector<HTMLInputElement>('input')?.focus();
   } catch {
-    if (container) container.textContent = '搜索索引尚未生成。请运行 npm run build 后使用 npm run preview 查看完整搜索。';
+    if (container) container.textContent = '搜索暂时不可用，请稍后重试。你也可以通过归档或标签浏览文章。';
   } finally { searchLoading = false; }
 }
 document.querySelector('#open-search')?.addEventListener('click', openSearch);
