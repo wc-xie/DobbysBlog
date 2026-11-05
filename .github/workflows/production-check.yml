@@ -1,0 +1,23 @@
+name: Verify production site
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify live pages and assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          site='https://dobbysblog.pages.dev'
+          curl --fail --show-error --silent --retry 5 --retry-all-errors --retry-delay 5 --max-time 20 "$site/" -o /tmp/blog-home.html
+          python3 -c 'from pathlib import Path; text=Path("/tmp/blog-home.html").read_text(); assert "Dobby" in text and "最近的文字" in text'
+          for route in posts/writing-workbench/ pagefind/pagefind.js rss.xml robots.txt sitemap-index.xml; do
+            curl --fail --show-error --silent --max-time 30 "$site/$route" -o /dev/null
+            echo "Verified /$route"
+          done
+          status=$(curl --show-error --silent --output /dev/null --write-out '%{http_code}' --max-time 20 "$site/not-a-real-post/")
+          test "$status" = '404'
+          echo 'Production homepage, rich-content article, search bundle, feeds, sitemap and 404 verified.'
