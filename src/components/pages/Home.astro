@@ -1,34 +1,83 @@
 ---
 import Base from '../../layouts/Base.astro';
-import PostCard from '../PostCard.astro';
 import Icon from '../Icon.astro';
-import { getPosts } from '../../lib';
-import { getCopy, localPath, tagPath, type Lang } from '../../i18n';
+import { getPosts, formatDate, readingTime } from '../../lib';
+import { getCopy, localPath, postPath, tagPath, type Lang } from '../../i18n';
+import '../../styles/notebook-home.css';
+
 interface Props { lang: Lang; }
 const { lang } = Astro.props;
 const t = getCopy(lang);
-const posts = (await getPosts(lang)).sort((a, b) => Number(b.data.featured) - Number(a.data.featured) || b.data.date.valueOf() - a.data.date.valueOf());
-const tags = [...new Set(posts.flatMap(post => post.data.tags))];
+const labels = lang === 'en' ? {
+  title: 'Research notebook', description: 'Notes on science, technology, and everyday questions.',
+  index: 'Notebook index', entries: 'Entries', topics: 'Topics', updated: 'Latest entry',
+  topicIndex: 'Topic index', about: 'About the notebook', open: 'Read entry',
+} : {
+  title: '研究笔记', description: '在同一本笔记里，记录科学、技术与日常中的问题。',
+  index: '笔记索引', entries: '文章', topics: '主题', updated: '最近更新',
+  topicIndex: '主题索引', about: '关于这本笔记', open: '阅读笔记',
+};
+const posts = (await getPosts(lang)).sort((a, b) =>
+  Number(b.data.featured) - Number(a.data.featured) ||
+  b.data.date.valueOf() - a.data.date.valueOf() ||
+  (a.data.translationKey || a.data.slug).localeCompare(b.data.translationKey || b.data.slug, 'en')
+);
+const topics = [...new Set(posts.flatMap(post => post.data.tags))].map(tag => ({
+  tag, count: posts.filter(post => post.data.tags.includes(tag)).length,
+})).sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag, 'en'));
+const latest = posts.reduce<Date | undefined>((newest, post) => !newest || post.data.date > newest ? post.data.date : newest, undefined);
+const ordinal = (number: number) => String(number).padStart(2, '0');
 ---
 <Base lang={lang}>
-  <section class="home-hero">
-    <div class="hero-copy">
-      <div class="eyebrow"><span class="status-dot"></span>{t.heroLabel}</div>
-      <h1>{t.heroFirst}<br />{t.heroSecond}<span class="hero-emphasis">{lang === 'en' && ' '}{t.heroAccent}</span></h1>
-      <p>{t.heroDescription[0]}<br class="desktop-break" />{t.heroDescription[1]}</p>
-      <a class="text-link" href={localPath(lang, '/about/')}>{t.aboutCorner}<Icon name="arrow" size={17} /></a>
-    </div>
-    <div class="hero-note" aria-hidden="true"><div class="note-index">FIELD NOTES <span>NO. 001</span></div><svg class="orbit-art" viewBox="0 0 300 200" fill="none"><ellipse cx="151" cy="98" rx="102" ry="40" transform="rotate(-28 151 98)"/><ellipse cx="151" cy="98" rx="102" ry="40" transform="rotate(32 151 98)"/><ellipse cx="151" cy="98" rx="40" ry="94" transform="rotate(4 151 98)"/><circle cx="151" cy="98" r="23" class="orbit-core"/><circle cx="67" cy="115" r="5" class="orbit-dot"/><circle cx="209" cy="151" r="4" class="orbit-dot"/><circle cx="158" cy="12" r="4" class="orbit-dot"/><path d="M147 98h8m-4-4v8" class="orbit-cross"/></svg><p>{t.slow}</p><small>STAY CURIOUS. KEEP EXPLORING.</small><span class="note-corner"></span></div>
-  </section>
-  <div class="home-content">
-    <section aria-labelledby="articles-title">
-      <div class="section-top"><h2 id="articles-title">{t.latest}<span>{String(posts.length).padStart(2, '0')}</span></h2><a href={localPath(lang, '/archive/')}>{t.allArchive}<Icon name="arrow" size={16} /></a></div>
-      <div class="post-list">{posts.map((post, index) => <PostCard post={post} index={index} />)}{!posts.length && <div class="empty-state"><Icon name="book" size={32} /><h3>{t.emptyTitle}</h3><p>{t.emptyDescription}</p></div>}</div>
+  <div class="notebook-home">
+    <section class="notebook-hero" aria-labelledby="notebook-title">
+      <div class="notebook-intro">
+        <div class="notebook-kicker"><span aria-hidden="true"></span> DOBBY'S HOME <b aria-hidden="true">/</b> OPEN NOTEBOOK</div>
+        <h1 id="notebook-title">{labels.title}<span aria-hidden="true">.</span></h1>
+        <p>{labels.description}</p>
+        <a href={localPath(lang, '/about/')} class="notebook-link">{labels.about}<Icon name="arrow" size={16} /></a>
+      </div>
+      <div class="notebook-summary">
+        <div class="notebook-summary-label"><span>{labels.index}</span><Icon name="book" size={17} /></div>
+        <dl>
+          <div><dt>{labels.entries}</dt><dd>{ordinal(posts.length)}</dd></div>
+          <div><dt>{labels.topics}</dt><dd>{ordinal(topics.length)}</dd></div>
+          {latest && <div><dt>{labels.updated}</dt><dd><time datetime={latest.toISOString()}>{formatDate(latest, lang)}</time></dd></div>}
+        </dl>
+      </div>
     </section>
-    <aside class="home-aside">
-      <div class="aside-section"><span class="aside-label">HELLO, I'M DOBBY</span><div class="avatar-mark">d<span>·</span></div><h2>{t.hello}</h2><p>{t.introduction.map((line, index) => <>{index > 0 && <br />}{line}</>)}</p><a class="text-link" href={localPath(lang, '/about/')}>{t.meet}<Icon name="arrow" size={15} /></a></div>
-      <div class="aside-section"><div class="aside-heading"><h3>{t.topics}</h3><span>TOPICS</span></div><div class="topic-list">{tags.map(tag => <a href={tagPath(lang, tag)}><span>{tag}</span><span>{posts.filter(post => post.data.tags.includes(tag)).length.toString().padStart(2, '0')}<Icon name="arrow" size={14} /></span></a>)}</div></div>
-      <a class="subscribe-note" href={localPath(lang, '/rss.xml')}><Icon name="rss" size={20} /><div><strong>{t.subscribeTitle}</strong><p>{t.subscribeDescription}</p></div><Icon name="arrow" size={16} /></a>
-    </aside>
+
+    <div class="notebook-layout">
+      <aside class="notebook-sidebar" aria-labelledby="notebook-topics">
+        <div class="notebook-sidebar-heading"><span class="notebook-label">INDEX / 01</span><h2 id="notebook-topics">{labels.topicIndex}</h2></div>
+        <nav class="notebook-topics" aria-label={labels.topicIndex}>
+          {topics.map(({ tag, count }) => <a href={tagPath(lang, tag)}><span>{tag}</span><span class="notebook-topic-count">{ordinal(count)}</span></a>)}
+        </nav>
+        <div class="notebook-side-links">
+          <a href={localPath(lang, '/archive/')}><span>{t.archive}</span><Icon name="arrow" size={15} /></a>
+          <a href={localPath(lang, '/rss.xml')}><span>{t.subscribe}</span><Icon name="rss" size={15} /></a>
+        </div>
+      </aside>
+
+      <section class="notebook-journal" aria-labelledby="articles-title">
+        <header class="notebook-journal-heading">
+          <div><span class="notebook-label">LOG / 02</span><h2 id="articles-title">{t.latest}</h2></div>
+          <a href={localPath(lang, '/archive/')} class="notebook-link">{t.allArchive}<Icon name="arrow" size={16} /></a>
+        </header>
+        <div class="notebook-list">
+          {posts.map((post, index) => <article class="post-card notebook-entry">
+            <div class="notebook-entry-number" aria-hidden="true">{ordinal(index + 1)}</div>
+            <div class="notebook-entry-body">
+              <div class="notebook-entry-meta"><time datetime={post.data.date.toISOString()}>{formatDate(post.data.date, lang)}</time><span aria-hidden="true">/</span><span>{readingTime(post.body)} {t.minutes}</span>{post.data.featured && <span class="notebook-featured">{t.featured}</span>}</div>
+              <h3><a href={postPath(post)}>{post.data.title}</a></h3>
+              <p>{post.data.description}</p>
+              <div class="post-tags">{post.data.tags.map(tag => <a href={tagPath(lang, tag)}>{tag}</a>)}</div>
+            </div>
+            <a class="notebook-entry-open" href={postPath(post)} aria-label={`${labels.open}: ${post.data.title}`}><Icon name="arrow" size={20} /></a>
+          </article>)}
+          {!posts.length && <div class="empty-state"><Icon name="book" size={28} /><h3>{t.emptyTitle}</h3><p>{t.emptyDescription}</p></div>}
+        </div>
+      </section>
+    </div>
   </div>
 </Base>
