@@ -99,7 +99,7 @@ In policy, the real resolution is to 1. continue to suppress the surgeon salary;
 
 ### Question 3: How Should We Account for Surgical Team Expertise and Preferences?
 
-A similar issue arises in our current **XWC hypothesis**.
+A similar issue arises in our current “dobby hypothesis\*\*.
 
 At present, we seem to assume that every surgical planner is extremely intelligent, fully rational, and proficient in every available surgical technique.
 
